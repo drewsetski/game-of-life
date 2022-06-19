@@ -3,13 +3,12 @@
 namespace App\GameOfLife;
 
 use App\GameOfLife\Helpers\Arr;
-use App\GameOfLife\Helpers\Console;
 use SplFileObject;
 
 class Board
 {
-    private const STATE_DEAD = 0;
-    private const STATE_ALIVE = 1;
+    public const STATE_DEAD = 0;
+    public const STATE_ALIVE = 1;
 
     /** @var int[][] */
     private array $cells;
@@ -22,12 +21,12 @@ class Board
         $this->cells = $cells;
     }
 
-    public function getWidth(): int
+    private function getWidth(): int
     {
         return count(Arr::first($this->getCells(), []));
     }
 
-    public function getHeight(): int
+    private function getHeight(): int
     {
         return count($this->getCells());
     }
@@ -40,19 +39,12 @@ class Board
         return $this->cells ?? [];
     }
 
-    public function setCellState(int $x, int $y, int $state): void
+    public static function generateRandomCells(int $width = 10, int $height = 10, int $maxAliveCells = 30): self
     {
-        if ($x >= 0 && $y >= 0 && $x < $this->getWidth() && $y < $this->getHeight()) {
-            $this->cells[$y][$x] = $state;
-        }
-    }
-
-    public static function generateRandomCells(int $width = 10, int $height = 10, int $maxAliveCells = 10): self
-    {
-        $cells = [];
+        $cells = array_fill(0, $height, (array_fill(0, $width, self::STATE_DEAD)));
         $board = new self($cells);
-        for ($x = 0; $x < $width; $x++) {
-            for ($y = 0; $y < $height; $y++) {
+        for ($y = 0; $y < $height; $y++) {
+            for ($x = 0; $x < $width; $x++) {
                 $board->setCellState($x, $y, $board->getRandomState($maxAliveCells));
             }
         }
@@ -76,14 +68,6 @@ class Board
         return new self($cells);
     }
 
-    private function getRandomState(int $maxAliveCells): int
-    {
-        if ($this->getAliveCellsCount() < $maxAliveCells) {
-            return array_rand([self::STATE_DEAD, self::STATE_ALIVE]);
-        }
-        return self::STATE_DEAD;
-    }
-
     public function getAliveCellsCount(): int
     {
         $count = 0;
@@ -97,32 +81,40 @@ class Board
         return $count;
     }
 
-    public function render(): void
+    public function calculateNextGeneration(): void
     {
-        $cells = $this->getCells();
-        $border = '';
-        echo $border;
-        foreach ($cells as $row) {
-            if (!$border) {
-                $border = PHP_EOL . str_repeat('+---', count($row)) . '+' . PHP_EOL;
-                echo $border;
-            }
-            foreach ($row as $cell) {
-                echo '|';
-                $cellBlock = '   ';
-                switch ($cell) {
-                    case self::STATE_DEAD:
-                        Console::output($cellBlock, Console::COLOR_BLACK, Console::COLOR_WHITE);
-                        break;
-                    case self::STATE_ALIVE:
-                        Console::output($cellBlock, Console::COLOR_WHITE, Console::COLOR_RED);
-                        break;
-                    default:
-                        // do nothing yet
+        $queueToDie = [];
+        $queueToBeBorn = [];
+        foreach ($this->getCells() as $y => $row) {
+            foreach ($row as $x => $cell) {
+                $aliveCellsCountAround = $this->getAliveCellsCountAround($x, $y);
+                $currentState = $this->getCellState($x, $y);
+                if ($currentState === self::STATE_ALIVE
+                    && ($this->isUnderPopulation($aliveCellsCountAround) || $this->isOvercrowd($aliveCellsCountAround))
+                ) {
+                    $queueToDie[] = [$x, $y];
+                } elseif ($currentState === self::STATE_DEAD && $this->isReproducible($aliveCellsCountAround)) {
+                    $queueToBeBorn[] = [$x, $y];
                 }
             }
-            echo '|' . $border;
         }
+        $this->setStateForQueue($queueToDie, self::STATE_DEAD);
+        $this->setStateForQueue($queueToBeBorn, self::STATE_ALIVE);
+    }
+
+    private function setCellState(int $x, int $y, int $state): void
+    {
+        if ($x >= 0 && $y >= 0 && $x < $this->getWidth() && $y < $this->getHeight()) {
+            $this->cells[$y][$x] = $state;
+        }
+    }
+
+    private function getRandomState(int $maxAliveCells): int
+    {
+        if ($this->getAliveCellsCount() < $maxAliveCells) {
+            return array_rand([self::STATE_DEAD, self::STATE_ALIVE]);
+        }
+        return self::STATE_DEAD;
     }
 
     private function getAliveCellsCountAround(int $x, int $y): int
@@ -157,27 +149,6 @@ class Board
             $cellState = (int)Arr::get($row, $x);
         }
         return $cellState;
-    }
-
-    public function calculateNextGeneration(): void
-    {
-        $queueToDie = [];
-        $queueToBeBorn = [];
-        foreach ($this->getCells() as $y => $row) {
-            foreach ($row as $x => $cell) {
-                $aliveCellsCountAround = $this->getAliveCellsCountAround($x, $y);
-                $currentState = $this->getCellState($x, $y);
-                if ($currentState === self::STATE_ALIVE
-                    && ($this->isUnderPopulation($aliveCellsCountAround) || $this->isOvercrowd($aliveCellsCountAround))
-                ) {
-                    $queueToDie[] = [$x, $y];
-                } elseif ($currentState === self::STATE_DEAD && $this->isReproducible($aliveCellsCountAround)) {
-                    $queueToBeBorn[] = [$x, $y];
-                }
-            }
-        }
-        $this->setStateForQueue($queueToDie, self::STATE_DEAD);
-        $this->setStateForQueue($queueToBeBorn, self::STATE_ALIVE);
     }
 
     private function setStateForQueue(array $queue, int $state): void

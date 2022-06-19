@@ -11,6 +11,6 @@ class Arr
 
     public static function first(array $array, $default = null)
     {
-        return reset($array) ?? $default;
+        return reset($array) ?: $default;
     }
 }

@@ -2,23 +2,36 @@
 
 namespace App\GameOfLife;
 
+use App\GameOfLife\Helpers\Console;
+
 class Game
 {
     private Board $board;
+    private int $steps = 1;
 
     public function __construct(Board $board)
     {
         $this->board = $board;
     }
 
-    public function getBoard(): Board
+    private function getBoard(): Board
     {
         return $this->board;
     }
 
-    public function setBoard(Board $board): void
+    private function getSteps(): int
     {
-        $this->board = $board;
+        return $this->steps;
+    }
+
+    public static function makeWithRandomBoard(): self
+    {
+        return new self(Board::generateRandomCells());
+    }
+
+    public static function makeFromTemplate(string $filename): self
+    {
+        return new self(Board::generateCellsFromTemplate($filename));
     }
 
     public function start(): void
@@ -30,7 +43,20 @@ class Game
             usleep(500000);
             $this->nextStep();
             $this->renderBoard();
+            $this->renderStats();
+            $this->incrementSteps();
         }
+    }
+
+    private function incrementSteps(): void
+    {
+        $this->steps++;
+    }
+
+    private function renderStats(): void
+    {
+        echo PHP_EOL . PHP_EOL . str_repeat('-', 50);
+        echo PHP_EOL . 'Steps: ' . $this->getSteps() . PHP_EOL;
     }
 
     private function hasAnyAliveCells(): bool
@@ -40,7 +66,30 @@ class Game
 
     private function renderBoard(): void
     {
-        $this->getBoard()->render();
+        $cells = $this->getBoard()->getCells();
+        $border = '';
+        echo $border;
+        foreach ($cells as $row) {
+            if (!$border) {
+                $border = PHP_EOL . str_repeat('+---', count($row)) . '+' . PHP_EOL;
+                echo $border;
+            }
+            foreach ($row as $cell) {
+                echo '|';
+                $cellBlock = '   ';
+                switch ($cell) {
+                    case Board::STATE_DEAD:
+                        Console::output($cellBlock, Console::COLOR_BLACK, Console::COLOR_WHITE);
+                        break;
+                    case Board::STATE_ALIVE:
+                        Console::output($cellBlock, Console::COLOR_WHITE, Console::COLOR_RED);
+                        break;
+                    default:
+                        // do nothing yet
+                }
+            }
+            echo '|' . $border;
+        }
     }
 
     private function nextStep(): void
@@ -56,15 +105,5 @@ class Game
     private function clearConsoleForRender(): void
     {
         echo "\033[0;0H";
-    }
-
-    public static function makeWithRandomBoard(): self
-    {
-        return new self(Board::generateRandomCells());
-    }
-
-    public static function makeFromTemplate(string $filename): self
-    {
-        return new self(Board::generateCellsFromTemplate($filename));
     }
 }

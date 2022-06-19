@@ -1,8 +1,7 @@
 <?php declare(strict_types=1);
 
-use App\GameOfLife\Game;
+use App\GameOfLife\App;
 
 require_once('autoload.php');
 
-$game = Game::makeFromTemplate('templates/version1.csv');
-$game->start();
+App::init();
